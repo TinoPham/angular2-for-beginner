@@ -1,0 +1,303 @@
+1. pass value between components
+----------------------------------------
+- appComponent file:
+ <video-list [videodata]="videos"></video-list>
+- videoList.ts:
+	input: ['videodata']
+ OR  @input() videodata;
+
+- videoList.html:
+<tr *ngFor="#v of videodata">
+	<td>{{v.id}}</td>
+	<td> {{v.title}} </td>
+</tr>
+
+2. Select video
+--------------------------------------------
+- videoList.html:
+	<tr *ngFor="#v of videos" (click)="onSelect(v)">
+		<td>{{v.id}}</td>
+		<td> {{v.title}} </td>
+	</tr>
+- videoList.ts:
+export class VideoListComponent {
+	onSelect(vid: Video) {
+		console.log(JSON.stringify(vid));
+	}
+}
+
+=> Event Bubbling
+- videoList.ts:
+@Component({
+	selector: 'video-list',
+	templateUrl: 'app/videolist.component.html',
+	inputs: ['videos'],
+	outputs: ['selectVideo']
+})
+export class VideoListComponent {
+		selectVideo = new EventEmitter();
+		onSelect(vid: Video) {
+		this.selectVideo.next(vid);
+	}
+}
+
+- appComponent.html: create new this one
+<h1 class="jumbotron"></h1>
+<video-list [videos]="videos" (selectVideo)="onSelectVideo($event)"></video-list>
+
+- appComponent.ts:
+@Component({
+	selector: 'my-app',
+	templateUrl: 'app/app.component.html',
+	directives: [VideoListComponent]
+})
+export class AppComponent {
+	title = Config.TITLE_PAGE;
+	videos : Array<Video>;
+	constructor(){
+		this.videos = [
+		new Video(1,"Test","www.test.com","Test Description"),
+		new Video(2,"Test 2","www.test2.com","Test Description")
+		]
+	}
+	onSelectVideo(video){
+		console.log(JSON.stringify(video));
+	}
+}
+
+3. Show video detail
+----------------------------
+- Create videoDetail.ts:
+import {Component} from 'angular2/core'
+import {Video} from './video'
+@Component({
+	selector:'video-detail',
+	templateUrl: 'app/videodetail.component.html',
+	inputs: ['video']
+})
+export class VideoDetailComponent{
+}
+
+- create videoDetail.html: <h2> {{video.title}} </h2>
+
+- appComponent.ts:
+import {Component} from 'angular2/core'
+import {Config} from './config.service'
+import {Video} from './video'
+import {VideoListComponent} from './videolist.component'
+@Component({
+	selector: 'my-app',
+	templateUrl: 'app/app.component.html',
+	directives: [VideoListComponent]
+})
+export class AppComponent {
+	title = Config.TITLE_PAGE;
+	videos : Array<Video>;
+	selectedVideo: Video;
+	constructor(){
+		this.videos = [
+			new Video(1,"Test","www.test.com","Test Description"),
+			new Video(2,"Test 2","www.test2.com","Test Description")
+		];
+	}
+	onSelectVideo(video){
+		//console.log(JSON.stringify(video));
+		this.selectedVideo = video;
+	}
+}
+
+- appComponent.html:
+<h1 class="jumbotron"></h1>
+<video-list [videos]="videos"(selectVideo)="onSelectVideo($event)"></video-list>
+<video-detail *ngIf="selectedVideo" [video]="selectedVideo"></video-detail>
+
+- appComponent.ts: directives: [VideoListComponent,VideoDetailComponent]
+
+4. Edit the selected video data
+---------------------------------------
+- videoDetail.html:
+<div class="row">
+	<div class="col-md-4">
+		<iframe width="100%" height="300" src="{{video.url}}">
+		</iframe>
+	</div>
+	<div class="col-md-8">
+		<form>
+			<h3> {{video.title}}</h3>
+			<div class="form-group">
+				<input type="input" class="form-control" id="url" required placeholder="url"
+				[(ngModel)]="video.url">
+			</div>
+			<div class="form-group">
+				<textarea class="form-control" rows="5" [(ngModel)]="video.desc">
+				</textarea>
+			</div>
+			<button type="button" class="btn btn-default" (click)="onButtonOkClick()"> </button>
+		</form>
+	</div>
+</div>
+
+5. Edit title
+----------------------------------
+- videoDetail.html:
+<h3 *ngIf="!editTitle" (click)="onTitleClick()">
+</h3>
+<div *ngIf="editTitle" class="form-group">
+<input type="input"
+class="form-control"
+id="title"
+required
+placeholder="title"
+[(ngModel)]="video.title"
+>
+</div>
+
+- videoDetail.ts:
+export class VideoDetailComponent{
+	private editTitle:boolean = false;
+	onTitleClick(){
+		this.editTitle=true;
+	}
+	onButtonOkClick(){
+		//todo
+	}
+	ngOnChanges(){
+		this.editTitle=false;
+	}
+}
+
+- Implement button OK clicked - videoDetail.ts:
+@Component({
+	selector:'video-detail',
+	templateUrl: 'app/videodetail.component.html',
+	inputs: ['video'],
+	outputs: ['closeForm']
+})
+export class VideoDetailComponent{
+	private closeForm = new EventEmitter();
+	private editTitle:boolean = false;
+	onTitleClick(){
+		this.editTitle=true;
+	}
+	onButtonOkClick(){
+		this.closeForm.next({});
+	}
+	ngOnChanges(){
+		this.editTitle=false;
+	}
+}
+
+- appComponent.html:
+<video-detail
+*ngIf="selectedVideo"
+[video]="selectedVideo"
+(closeForm)="onCloseDetailForm($event)">
+</video-detail>
+
+- appComponent.ts:
+export class AppComponent{
+	....
+	onCloseDetailForm(event){
+		this.selectedVideo = null;
+	}
+	....
+}
+
+6. Creating a new item
+---------------------------
+
+- appComponent.html:
+<h1 class="jumbotron">
+</h1>
+<video-list [videos]="videos"
+(selectVideo)="onSelectVideo($event)">
+</video-list>
+<video-detail
+*ngIf="selectedVideo"
+[video]="selectedVideo"
+(closeForm)="onCloseDetailForm($event)"
+>
+</video-detail>
+<button type="button"
+class="btn btn-default"
+(click)="newVideo()"> </button>
+
+- appComponent.ts:
+export class AppComponent{
+	....
+	newVideo(event){
+		var v : VideoModel = new VideoModel(this.videos.length + 1, "A new video");
+		this.videos.push(v);
+		this.selectedVideo = v;
+	}
+	....
+}
+
+7. Creating panel component
+-----------------------------------
+- panel.ts:
+import {Component} from 'angular2/core';
+@Component({
+	selector: 'panel',
+	templateUrl: 'app/container/panel.html'
+})
+export class Panel { }
+
+- panel.html:
+<div class="panel panel-default">
+	<div class="panel-heading"> Panel Heading </div>
+	<div class="panel-body"> Panel Content </div>
+</div>
+
+- appComponent.html:
+<br/>
+<panel></panel>
+
+- appComponent.ts: 
+import {Panel} from './container'
+.....
+directives: [Panel] // <<<<<< Add panel to directives
+.....
+
+- Creating app/container.ts:
+export * from './container/panel'
+
+8. Setting panel component
+-------------------------------
+- panel.ts:
+import {Component} from 'angular2/core';
+@Component({
+selector: 'panel',
+templateUrl: 'app/container/panel.html',
+inputs: ['title']
+})
+export class Panel { }
+
+- panel.html:
+<div class="panel panel-default">
+	<div class="panel-heading" *ngIf="title"> {{ title }}</div>
+	<div class="panel-body"> Panel Content </div>
+</div>
+
+- appComponent.html:
+<br/>
+<panel title="Hello World"></panel>
+
+9. Hierachical components
+
+- panel.html:
+<div class="panel panel-default">
+	<div class="panel-heading"> {{title}} </div>
+	<div class="panel-body">
+		<ng-content></ng-content>
+	</div>
+</div>
+
+- appComponent.html:
+<br/>
+<panel title="Hello World"></panel>
+
+
+
+
+
